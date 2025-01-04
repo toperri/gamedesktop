@@ -1,0 +1,35 @@
+{
+  "name": "gamedesktop",
+  "version": "1.0.0",
+  "description": "GameBanana desktop app",
+  "main": "Code/Node/index.js",
+  "scripts": {
+    "test": "electron .",
+    "build": "electron-builder --win zip nsis",
+    "build32bit": "electron-builder --ia32 --win zip nsis"
+  },
+  "build": {
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true
+    },
+    "productName": "GameDesktop",
+    "artifactName": "gamedesktop.${ext}",
+    "asar": false,
+    "appId": "it.toperri.banana",
+    "win": {
+      "target": "zip nsis",
+      "icon": "Code/Web/bigbanana.png"
+    }
+  },
+  "author": "toperri",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "windows-elevate": "^1.0.1"
+  }
+}

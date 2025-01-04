@@ -1,0 +1,33 @@
+:root {
+    --PrimaryNavHeight: 70px !important;
+}
+
+#dragdiv {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 10px;
+    z-index: 9999;
+    -webkit-app-region: drag;
+    background-color: rgba(0,0,0,0);
+}
+
+#SearchForm {
+    max-width: none !important;
+}
+#PrimaryNav {
+    -webkit-app-region: drag;
+}
+
+#PrimaryNav *:not(div) {
+    -webkit-app-region: no-drag;
+}
+
+#BodyWrapper {
+    max-width: unset;
+}
+
+button#SiteMenuToggle {
+    margin-right: 150px;
+}
