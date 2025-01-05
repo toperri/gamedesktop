@@ -22,44 +22,7 @@ function createWindow () {
     win.setIcon(__dirname + '/../Web/banana.png');
 
     win.webContents.on('did-finish-load', () => {
-        win.webContents.executeJavaScript(`
-            // todo: make this softcoded
-            function randomString(length) {
-                var result = '';
-                var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                var charactersLength = characters.length;
-                for (var i = 0; i < length; i++) {
-                    result += characters.charAt(Math.floor(Math.random() * charactersLength));
-                }
-                return result;
-            }
-            function dlgb(id) {
-                ${fs.readFileSync(__dirname + '/../Web/Download.js')}
-            }
-            var overrideCSS = document.createElement('style');
-            overrideCSS.innerHTML = \`${fs.readFileSync(__dirname + '/../Web/Override.css')}\`
-            document.head.appendChild(overrideCSS);
-
-            document.title = 'GameBanana';
-
-            var dragdiv = document.createElement('div');
-            dragdiv.id = 'dragdiv';
-            document.body.appendChild(dragdiv);
-
-            // todo: hate this code
-            setTimeout(() => {
-                var obj = document.querySelectorAll('.DownloadOptions .GreenColor');
-                console.log(obj);
-                var i = -1;
-                while (i <= obj.length) {
-                    i++;
-                    console.log(i, obj[i]);
-                    obj[i].id = randomString(10);
-                    window[obj[i].id] = obj[i].href;
-                    obj[i].href = 'javascript:dlgb("' + obj[i].id + '");';
-                }
-            }, 1000);
-        `);
+        win.webContents.executeJavaScript(fs.readFileSync(__dirname + '/../Web/OnLoad.js', 'utf8').replace('$CSS$', fs.readFileSync(__dirname + '/../Web/Override.css', 'utf8')));
     });
 
     win.webContents.setWindowOpenHandler(({ url }) => {
