@@ -77,3 +77,22 @@ setTimeout(() => {
         obj[i].href = 'javascript:dlgb("' + obj[i].id + '");';
     }
 }, 1000);
+
+document.addEventListener('keydown', function(event) {
+    if (event.ctrlKey && event.key === 'ArrowLeft') {
+       history.back();
+    }
+    if (event.ctrlKey && event.key === 'ArrowRight') {
+        history.forward();
+     }
+});
+
+var close = false;
+
+window.onbeforeunload = function(e) {
+    console.log('onbeforeunload');
+    e.preventDefault();
+    if (!close) {
+        window.electronAPI.hide();
+    }
+};
