@@ -89,7 +89,7 @@ document.addEventListener('keydown', function(event) {
 
 var close = false;
 
-window.onbeforeunload = function(e) {
+window.onclose = function(e) {
     console.log('onbeforeunload');
     e.preventDefault();
     if (!close) {

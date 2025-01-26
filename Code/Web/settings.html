@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameDesktop Settings</title>
+</head>
+<body>
+    <h1>GameDesktop settings</h1>
+    <br>
+    <h4>Choose what GameDesktop does when you close the window</h4>
+    <span>When I close the window... <select name="bgchecks" id="bgchecks">
+        <option value="true">keep me open in background mode</option>
+        <option value="false">close the app</option>
+    </select></span>
+    <br>
+    <lilspan>Keep in mind you won't be able to receive notifications if you don't use background mode.</lilspan>
+    <br>
+    <h4>Choose frequency of notification checks</h4>
+    <table>
+        <th>
+            <td>Never</td>
+            <td>Every 5 minutes</td>
+            <td>Every 10 minutes</td>
+            <td>Every 15 minutes</td>
+            <td>Every 30 minutes</td>
+            <td>Every 1 hour</td>
+        </th>
+        <tr>
+            <td>Current setting</td>
+            <td><input type="radio" name="frequency" value="-1"></td>
+            <td><input type="radio" name="frequency" value="5"></td>
+            <td><input type="radio" name="frequency" value="10"></td>
+            <td><input type="radio" name="frequency" value="15"></td>
+            <td><input type="radio" name="frequency" value="30"></td>
+            <td><input type="radio" name="frequency" value="60"></td>
+        </tr>
+    </table>
+    <br>
+    <button onclick="sendSettings()">Submit my settings</button>
+</body>
+<script>
+    function receiveSettings(settings) {
+        document.getElementById("bgchecks").value = "" + settings.background;
+        document.querySelector('input[name="frequency"][value="' + settings.frequency + '"]').checked = true;
+    }
+
+    function sendSettings() {
+        var settings = {
+            background: document.getElementById("bgchecks").value === "true",
+            frequency: parseInt(document.querySelector('input[name="frequency"]:checked').value)
+        };
+        window.electronAPI.sendSettings(settings);
+    }
+</script>
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+    }
+
+    th, td {
+        padding: 10px;
+        text-align: center;
+        border: 1px solid #ddd;
+        color: white; /* Set text color to white */
+    }
+
+    th {
+        color: white;
+    }
+
+    lilspan {
+        color: gray;
+        font-size: 10px;
+    }
+
+    input[type="radio"] {
+        cursor: pointer;
+    }
+
+    body {
+        font-family: "Open Sans", sans-serif;
+        color: white;
+        background: #131a20 url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAHElEQVQoU2NkIA5IMhKnjmFUId6AAgePJDFhCQDDFAEFiQDatQAAAABJRU5ErkJggg==);
+    }
+</style>
+</html>
+</style>
+</html>

@@ -2,6 +2,21 @@ const { app, BrowserWindow, dialog, ipcMain, Notification, Tray, Menu } = requir
 const fs = require('fs');
 const path = require('path');
 
+var MINUTES = 4;
+
+function updateInterval() {
+    fs.writeFileSync(app.getPath('appData') + '/interval', MINUTES.toString());
+}
+
+if (fs.existsSync(app.getPath('appData') + '/interval', 'utf8')) {
+    MINUTES = parseInt(fs.readFileSync(app.getPath('appData') + '/interval', 'utf8'));
+}
+else {
+    MINUTES = 5;
+    updateInterval();
+}
+
+
 var __fabCallback = null;
 var win = null;
 var tray = null;
@@ -17,26 +32,6 @@ function createAppBarIcon(win) {
             label: 'Show app', click: () => {
                 win.show();
             }
-        },
-        {
-            label: 'Disable background mode', click: () => {
-                fs.writeFileSync(app.getPath('appData') + '/noBG', 'true');
-                dialog.showMessageBox({
-                    title: 'GameBanana',
-                    message: 'Background mode has been disabled. Quit the app to apply changes.',
-                    type: 'info'
-                });
-            }, visible: !fs.existsSync(app.getPath('appData') + '/noBG', 'utf8')
-        },
-        {
-            label: 'Enable background mode', click: () => {
-                fs.unlinkSync(app.getPath('appData') + '/noBG');
-                dialog.showMessageBox({
-                    title: 'GameBanana',
-                    message: 'Background mode has been enabled. Quit the app to apply changes.',
-                    type: 'info'
-                });
-            }, visible: fs.existsSync(app.getPath('appData') + '/noBG', 'utf8')
         },
         {
             label: 'Quit', click: () => {
@@ -134,59 +129,56 @@ function createWindow () {
         checkForNotifications(win);
     });
 
-    ipcMain.on('hide', () => {
-        if (fs.existsSync(app.getPath('appData') + '/noBG', 'utf8')) {
+    win.on('close', (event) => {
+        if (!fs.existsSync(app.getPath('appData') + '/noBG', 'utf8')) {
+            event.preventDefault();
             win.hide();
-            win.webContents.executeJavaScript('close = true; window.close();');
-            setTimeout(() => {
-                win.close();
-                process.exit(0);
-            }, 1000);
-            return;
+
+            if (MINUTES != -1) {
+                setInterval(() => {
+                    checkForNotifications(win);
+                }, 1000 * 60 * MINUTES);
+            }
         }
-        win.hide();
-        if (!fs.existsSync(app.getPath('appData') + '/firstRun', 'utf8')) {
-            var notification = new Notification({
+    });
+
+    ipcMain.on('settings', () => {
+        var modal = new BrowserWindow({
+            parent: win,
+            modal: true,
+            width: 900,
+            height: 700,
+            title: 'Settings',
+            webPreferences: {
+                nodeIntegration: true,
+                preload: __dirname + '/../Web/settingsIPC.js'
+            }
+        });
+        modal.loadFile(__dirname + '/../Web/settings.html');
+        modal.webContents.on('did-finish-load', () => {
+            modal.webContents.executeJavaScript('receiveSettings({frequency: ' + MINUTES + ', background: ' + !fs.existsSync(app.getPath('appData') + '/noBG', 'utf8') + '})');
+        });
+        ipcMain.on('sendSettings', (event, data) => {
+            MINUTES = data.frequency;
+            if (data.background) {
+                if (fs.existsSync(app.getPath('appData') + '/noBG', 'utf8')) {
+                    fs.unlinkSync(app.getPath('appData') + '/noBG');
+                }
+            }
+            else {
+                fs.writeFileSync(app.getPath('appData') + '/noBG', 'true');
+            }
+
+            updateInterval();
+
+            dialog.showMessageBox({
                 title: 'GameBanana',
-                body: 'The app runs in the background. Click for more info.',
-                icon: __dirname + '/../Web/banana.png'
+                message: 'Settings saved successfully! To apply changes, restart the app.',
+                type: 'info'
+            }).then(() => {
+                modal.close();
             });
-
-            notification.once('click', () => {
-                dialog.showMessageBox({
-                    title: 'GameBanana',
-                    message: 'The app is still running in the background. Would you like to close it?',
-                    type: 'info',
-                    buttons: ['Yes', 'No', 'Disable background mode']
-                }).then((result) => {
-                    if (result.response === 1) {
-                        win.webContents.executeJavaScript('close = true; window.close();');
-                        setTimeout(() => {
-                            win.close();
-                            process.exit(0);
-                        }, 1000);
-                    }
-                    if (result.response === 2) {
-                        win.webContents.executeJavaScript('close = true; window.close();');
-                        setTimeout(() => {
-                            win.close();
-                            process.exit(0);
-                        }, 1000);
-                        fs.writeFileSync(app.getPath('appData') + '/noBG', 'true');
-                    }
-                });
-            });
-
-            notification.show();
-
-            fs.writeFileSync(app.getPath('appData') + '/firstRun', 'true');
-        }
-        setInterval(() => {
-            win.webContents.executeJavaScript(fs.readFileSync(__dirname + '/../Web/OnLoad.js', 'utf8').replace('$CSS$', fs.readFileSync(__dirname + '/../Web/Override.css', 'utf8')));
-
-            console.log('Page loaded!');
-            checkForNotifications(win);
-        }, 1000 * 60);
+        });
     });
 
     win.webContents.setWindowOpenHandler(({ url }) => {
@@ -204,6 +196,16 @@ function createWindow () {
             event.preventDefault();
             require('electron').shell.openExternal(url);
             win.webContents.executeJavaScript('window.history.back()');
+        }
+
+        if (url.includes('members/settings/')) {
+            console.log('Injecting settings');
+            setTimeout(() => {
+                win.webContents.executeJavaScript(`
+                    var cc = document.querySelector('module#SettingsPortalModule .Content');
+                    cc.innerHTML += \`<div class="CategoryTitle">GameDesktop specific settings</div><p style="width: 100% !important"><spriteicon class="SettingsIcon AdditionalDetailsIcon" style="margin-right: 10px"></spriteicon>This section is exclusive to GameDesktop.</p><br><a href="javascript:window.electronAPI.settings()"><spriteicon class="SettingsIcon AppsIcon"></spriteicon><div><div class=\"Cluster\"><span>Settings</span><!--v-if--><!--v-if--></div><p>Settings for this app</p></div></a>\`;
+                `);
+            }, 2000);
         }
 
         if (url.includes('trash') || url.includes('settings/password/')) {
@@ -234,7 +236,7 @@ function createWindow () {
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
+    if (fs.existsSync(app.getPath('appData') + '/noBG', 'utf8')) {
         app.quit();
     }
 });
