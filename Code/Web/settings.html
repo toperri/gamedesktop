@@ -10,12 +10,12 @@
     <br>
     <h4>Choose what GameDesktop does when you close the window</h4>
     <span>When I close the window... <select name="bgchecks" id="bgchecks">
-        <option value="true">keep me open in background mode</option>
-        <option value="false">close the app</option>
+        <option value="true">keep the app open via background mode</option>
+        <option value="false">close the app completely</option>
     </select></span>
     <br>
     <lilspan>Keep in mind you won't be able to receive notifications if you don't use background mode.</lilspan>
-    <br>
+    <hr>
     <h4>Choose frequency of notification checks</h4>
     <table>
         <th>
@@ -36,7 +36,8 @@
             <td><input type="radio" name="frequency" value="60"></td>
         </tr>
     </table>
-    <br>
+    <hr>
+    <h4>Submit your changes</h4>
     <button onclick="sendSettings()">Submit my settings</button>
 </body>
 <script>
@@ -54,6 +55,9 @@
     }
 </script>
 <style>
+    a {
+        color: white;
+    }
     table {
         width: 100%;
         border-collapse: collapse;

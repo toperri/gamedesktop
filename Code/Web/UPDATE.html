@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div>
+        <img loading="lazy" src="banana.png" alt="Loading..." class="loadimg">
+        <br>
+        <progress id="progress"></progress>
+    </div>
+</body>
+<style>
+    body {
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+    }
+    a {
+        color: white;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+    }
+
+    th, td {
+        padding: 10px;
+        text-align: center;
+        border: 1px solid #ddd;
+        color: white; /* Set text color to white */
+    }
+
+    th {
+        color: white;
+    }
+
+    @keyframes loader {
+        0%,
+        to {
+            transform:rotateY(0deg)
+        }
+        50% {
+            transform:rotateY(1turn)
+        }
+        }
+
+    .loadimg {
+        animation: loader 1s infinite;
+    }
+
+    lilspan {
+        color: gray;
+        font-size: 10px;
+    }
+
+    input[type="radio"] {
+        cursor: pointer;
+    }
+
+    body {
+        font-family: "Open Sans", sans-serif;
+        color: white;
+        background: #131a20 url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAHElEQVQoU2NkIA5IMhKnjmFUId6AAgePJDFhCQDDFAEFiQDatQAAAABJRU5ErkJggg==);
+    }
+</style>
+</html>

@@ -93,6 +93,11 @@ window.onclose = function(e) {
     console.log('onbeforeunload');
     e.preventDefault();
     if (!close) {
-        window.electronAPI.hide();
+        try {
+            window.electronAPI.hide();
+        }
+        catch (e) {
+            console.log(e);
+        }
     }
 };

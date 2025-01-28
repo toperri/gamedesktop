@@ -1,9 +1,32 @@
-const { app, BrowserWindow, dialog, ipcMain, Notification, Tray, Menu } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Notification, Tray, Menu, screen, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
+const express = require('express');
+var request = require('request');
+var progress = require('request-progress');
 
 var MINUTES = 4;
+var url = '';
+var checkedNotifs = false;
 
+process.on('uncaughtException', (err) => {
+    console.error(err);
+    dialog.showErrorBox('gamedesktop', 'An error occurred. Please check the console for more information.');
+});
+
+function windowOpt(opt) {
+    return {
+        width: opt.width || 800,
+        height: opt.height || 600,
+        titleBarStyle: opt.titleBarStyle || 'default',
+        titleBarOverlay: opt.titleBarOverlay || {},
+        webPreferences: opt.webPreferences || { nodeIntegration: false },
+        parent: opt.parent || null,
+        modal: opt.modal || false,
+        title: opt.title || 'Untitled'
+    };
+}
 function updateInterval() {
     fs.writeFileSync(app.getPath('appData') + '/interval', MINUTES.toString());
 }
@@ -21,6 +44,8 @@ var __fabCallback = null;
 var win = null;
 var tray = null;
 
+let setup2FA = false;
+
 function createAppBarIcon(win) {
     if (tray) {
         tray.destroy();
@@ -35,11 +60,7 @@ function createAppBarIcon(win) {
         },
         {
             label: 'Quit', click: () => {
-                win.webContents.executeJavaScript('close = true; window.close();');
-                setTimeout(() => {
-                    win.close();
-                    process.exit(0);
-                }, 1000);
+                process.exit();
             }
         }
     ]);
@@ -84,7 +105,6 @@ function checkForNotifications(win) {
                 icon: __dirname + '/../Web/banana.png',
                 click: () => {
                     win.show();
-                    win.webContents.executeJavaScript('document.getElementById("notifications").click()');
                 }
             });
             notification.show();
@@ -93,9 +113,107 @@ function checkForNotifications(win) {
 }
 
 function createWindow () {
-    win = new BrowserWindow({
-        width: 800,
-        height: 600,
+    axios.get('https://gamebanana.com/apiv11/Tool/18841/Updates?_nPage=1&_nPerPage=10')
+        .then(response => {
+            var versions = response.data._aRecords.map(x => x._sVersion);
+
+            var myVersion = JSON.parse(fs.readFileSync(__dirname + '/../../package.json', 'utf8')).version.substr(0, 3);
+
+            console.log('Versions:', versions);
+            console.log('My version:', myVersion);
+
+            if (versions[0] != myVersion) {
+                var ba = ['OK'];
+                console.log(process.argv);
+                if (process.argv.includes('--ignore-update')) {
+                    ba.push('Ignore');
+                }
+                win.hide();
+                dialog.showMessageBox(win, {
+                    title: 'Update available',
+                    message: 'A new version of GameDesktop is available. The update will download.',
+                    type: 'info',
+                    buttons: ba
+                }).then((res) => {
+                    tray.destroy();
+                    if (res.response == 0) {
+                        var updateWin = new BrowserWindow(({
+                            width: 300,
+                            height: 100,
+                            frame: false,
+                            title: 'GameBanana Update',
+                            webPreferences: {
+                                nodeIntegration: true
+                            }
+                        }));
+
+                        updateWin.loadFile(__dirname + '/../Web/UPDATE.html');
+
+                        const primaryDisplay = screen.getPrimaryDisplay();
+                        const { width, height } = primaryDisplay.workAreaSize;
+                        updateWin.setPosition(width - 300, height - 100);
+
+                        updateWin.on('closed', () => {
+                            updateWin = null;
+                        });
+
+                        updateWin.show();
+
+                        var paths = axios.get('https://gamebanana.com/apiv11/Tool/18841/ProfilePage').then(response => {
+                            console.log('EXE path:', response.data._aFiles[0]._sDownloadUrl);
+                            
+                            progress(request(response.data._aFiles[0]._sDownloadUrl), {
+
+                            })
+                            .on('progress', function (state) {
+                                // The state is an object that looks like this:
+                                // {
+                                //     percent: 0.5,               // Overall percent (between 0 to 1)
+                                //     speed: 554732,              // The download speed in bytes/sec
+                                //     size: {
+                                //         total: 90044871,        // The total payload size in bytes
+                                //         transferred: 27610959   // The transferred payload size in bytes
+                                //     },
+                                //     time: {
+                                //         elapsed: 36.235,        // The total elapsed seconds since the start (3 decimals)
+                                //         remaining: 81.403       // The remaining seconds to finish (3 decimals)
+                                //     }
+                                // }
+                                updateWin.webContents.executeJavaScript(`document.getElementById('progress').value = ${state.percent * 100};`);
+                            })
+                            .on('error', function (err) {
+                                updateWin.close();
+                                dialog.showErrorBox('GameDesktop Updating Error', 'An error occurred while downloading the update. Please try again later.');
+                                process.exit();
+                            })
+                            .on('end', function () {
+                                updateWin.close();
+                                dialog.showMessageBox({
+                                    title: 'GameDesktop',
+                                    message: 'The update has been downloaded! The installer will now open.',
+                                    type: 'info'
+                                }).then(() => {
+                                    shell.openExternal(app.getPath('downloads') + '/GDUpdateSetup.exe');
+                                    process.exit();
+                                });
+                            })
+                            .pipe(fs.createWriteStream(app.getPath('downloads') + '/GDUpdateSetup.exe'));
+                        });
+                    }
+                    else {
+                        win.show();
+                        createAppBarIcon(win);
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching updates:', error);
+        });
+
+    win = new BrowserWindow(windowOpt({
+        width: 1280,
+        height: 720,
         titleBarStyle: 'hidden',
         titleBarOverlay: {
             color: 'rgb(28,39,46)',
@@ -106,6 +224,10 @@ function createWindow () {
             nodeIntegration: true,
             preload: __dirname + '/../Web/ElectronIPC.js'
         }
+    }));
+
+    win.webContents.session.webRequest.onBeforeRequest((details, callback) => {
+        callback({});
     });
 
     createAppBarIcon(win);
@@ -122,11 +244,13 @@ function createWindow () {
         }
     });
 
-    win.webContents.on('did-finish-load', () => {
-        win.webContents.executeJavaScript(fs.readFileSync(__dirname + '/../Web/OnLoad.js', 'utf8').replace('$CSS$', fs.readFileSync(__dirname + '/../Web/Override.css', 'utf8')));
 
-        console.log('Page loaded!');
-        checkForNotifications(win);
+    win.webContents.on('did-finish-load', () => {
+        setTimeout(function() {
+            win.webContents.executeJavaScript(fs.readFileSync(__dirname + '/../Web/OnLoad.js', 'utf8').replace('$CSS$', fs.readFileSync(__dirname + '/../Web/Override.css', 'utf8')));
+
+            console.log('Page loaded!');
+        }, 900);
     });
 
     win.on('close', (event) => {
@@ -143,20 +267,44 @@ function createWindow () {
     });
 
     ipcMain.on('settings', () => {
-        var modal = new BrowserWindow({
-            parent: win,
-            modal: true,
-            width: 900,
-            height: 700,
-            title: 'Settings',
-            webPreferences: {
-                nodeIntegration: true,
-                preload: __dirname + '/../Web/settingsIPC.js'
+        var modal = new BrowserWindow(windowOpt(
+            {
+                parent: win,
+                modal: true,
+                width: 1200,
+                height: 800,
+                title: 'Settings',
+                webPreferences: {
+                    nodeIntegration: true,
+                    preload: __dirname + '/../Web/settingsIPC.js'
+                }
             }
-        });
+        ));
+        modal.setMenuBarVisibility(false);
         modal.loadFile(__dirname + '/../Web/settings.html');
         modal.webContents.on('did-finish-load', () => {
             modal.webContents.executeJavaScript('receiveSettings({frequency: ' + MINUTES + ', background: ' + !fs.existsSync(app.getPath('appData') + '/noBG', 'utf8') + '})');
+        });
+        modal.webContents.setWindowOpenHandler(({ url }) => {
+            require('electron').shell.openExternal(url);
+            return { action: 'deny' };
+        });
+        modal.webContents.on('did-navigate', (event, url) => {
+            if (!url.includes('Code/Web/settings.html')) {
+                event.preventDefault();
+                require('electron').shell.openExternal(url);
+                modal.webContents.executeJavaScript('window.history.back()');
+            }
+        });
+        ipcMain.on('2fa', (event, data) => {
+            modal.close();
+            dialog.showMessageBox({
+                title: 'GameBanana',
+                message: 'To continue setup of 2FA authentication: please open the 2FA menu in the GameBanana settings.',
+                type: 'info'
+            });
+            setup2FA = true;
+
         });
         ipcMain.on('sendSettings', (event, data) => {
             MINUTES = data.frequency;
@@ -171,7 +319,7 @@ function createWindow () {
 
             updateInterval();
 
-            dialog.showMessageBox({
+            dialog.showMessageBox(modal, {
                 title: 'GameBanana',
                 message: 'Settings saved successfully! To apply changes, restart the app.',
                 type: 'info'
@@ -191,25 +339,40 @@ function createWindow () {
         require('electron').shell.openExternal(url);
     });
 
-    win.webContents.on('did-navigate', (event, url) => {
-        if (!url.includes('gamebanana.com')) {
+    win.webContents.on('will-navigate', (event, turl) => {
+        url = turl;
+    });
+    ipcMain.on('callOnLoad', (event) => {
+        var calling = BrowserWindow.getFocusedWindow();
+
+        if (!checkedNotifs) {
+            checkForNotifications(calling);
+            checkedNotifs = true;
+        }
+        if (!url.includes('gamebanana.com') && url != '') {
             event.preventDefault();
             require('electron').shell.openExternal(url);
-            win.webContents.executeJavaScript('window.history.back()');
+            calling.webContents.executeJavaScript('window.history.back()');
         }
 
-        if (url.includes('members/settings/')) {
+        var urlWithoutNumber = url.replace(/[0-9]/g, '');
+        if (urlWithoutNumber == ('https://gamebanana.com/members/settings/')) {
             console.log('Injecting settings');
             setTimeout(() => {
-                win.webContents.executeJavaScript(`
+                var urlWithoutNumber = url.replace(/[0-9]/g, '');
+                console.log('"' + urlWithoutNumber + '"');
+                if (!urlWithoutNumber.endsWith('https://gamebanana.com/members/settings/')) {
+                    console.log('DOUBLE INJECT');
+                     return;
+                } // Might be a fix??
+                calling.webContents.executeJavaScript(`
                     var cc = document.querySelector('module#SettingsPortalModule .Content');
-                    cc.innerHTML += \`<div class="CategoryTitle">GameDesktop specific settings</div><p style="width: 100% !important"><spriteicon class="SettingsIcon AdditionalDetailsIcon" style="margin-right: 10px"></spriteicon>This section is exclusive to GameDesktop.</p><br><a href="javascript:window.electronAPI.settings()"><spriteicon class="SettingsIcon AppsIcon"></spriteicon><div><div class=\"Cluster\"><span>Settings</span><!--v-if--><!--v-if--></div><p>Settings for this app</p></div></a>\`;
-                `);
-            }, 2000);
+                    cc.innerHTML += \`` + fs.readFileSync('${__dirname}/../Code/Web/gbsetting.htm', 'utf8') + "\`;");
+            }, 1600);
         }
 
         if (url.includes('trash') || url.includes('settings/password/')) {
-            win.hide();
+            calling.hide();
             dialog.showMessageBox({
                 type: 'warning',
                 title: 'Elevated action warning',
@@ -220,12 +383,12 @@ function createWindow () {
                 elevate.exec('echo', 'Admin perms test', function(error, stdout, stderror) {
                     if (error) {
                         console.error('Failed!');
-                        win.show();
-                        win.webContents.executeJavaScript('window.history.back()');
+                        calling.show();
+                        calling.webContents.executeJavaScript('window.history.back()');
                         return;
                     }
 
-                    win.show();
+                    calling.show();
                     console.log('Success!');
                 });
             });

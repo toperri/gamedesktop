@@ -6,3 +6,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   settings: () => ipcRenderer.send('settings'),
 });
 
+window.addEventListener('DOMContentLoaded', () => {
+  ipcRenderer.send('callOnLoad');
+});
